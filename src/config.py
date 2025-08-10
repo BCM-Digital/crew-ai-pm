@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     # OpenAI Configuration
     openai_api_key: str = Field(..., description="OpenAI API key")
     openai_model: str = Field(default="gpt-4-turbo-preview", description="OpenAI model to use")
+    openai_base_url: str | None = Field(default=None, description="Custom base URL for OpenAI-compatible API (e.g., http://host.docker.internal:8000/v1)")
+    
+    # Web Interface
+    web_interface_enabled: bool = Field(default=False, description="Enable web-based monitoring and approvals")
+    web_host: str = Field(default="0.0.0.0", description="Web server host")
+    web_port: int = Field(default=8001, description="Web server port")
     
     # GitHub Configuration
     github_token: str = Field(..., description="GitHub personal access token")

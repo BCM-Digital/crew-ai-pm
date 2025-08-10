@@ -1,0 +1,58 @@
+version: "3.9"
+services:
+  app:
+    build: .
+    container_name: pm-agent-app
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-not-needed}
+      - OPENAI_MODEL=${OPENAI_MODEL:-ai/gpt-oss}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://host.docker.internal:8000/v1}
+      - WEB_INTERFACE_ENABLED=${WEB_INTERFACE_ENABLED:-true}
+      - WEB_HOST=${WEB_HOST:-0.0.0.0}
+      - WEB_PORT=${WEB_PORT:-8001}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-changeme}
+      - GITHUB_OWNER=${GITHUB_OWNER:-changeme}
+      - GITHUB_REPO=${GITHUB_REPO:-changeme}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-changeme}
+      - SLACK_APP_TOKEN=${SLACK_APP_TOKEN:-}
+      - SLACK_CHANNEL=${SLACK_CHANNEL:-#pm-updates}
+      - PROJECT_NAME=${PROJECT_NAME:-PM Agent}
+      - PROJECT_DESCRIPTION=${PROJECT_DESCRIPTION:-Dockerized PM Agent}
+      - CURRENT_SPRINT=${CURRENT_SPRINT:-}
+      - TEAM_MEMBERS=${TEAM_MEMBERS:-}
+      - AGENT_VERBOSE=${AGENT_VERBOSE:-true}
+      - MAX_EXECUTION_TIME=${MAX_EXECUTION_TIME:-300}
+      - HUMAN_APPROVAL_REQUIRED=${HUMAN_APPROVAL_REQUIRED:-true}
+      - INTERACTIVE_MODE=${INTERACTIVE_MODE:-false}
+      - APPROVAL_TIMEOUT=${APPROVAL_TIMEOUT:-300}
+      - AUTO_APPROVE_LOW_RISK=${AUTO_APPROVE_LOW_RISK:-false}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./pm_agent.db}
+      - CHROMA_PERSIST_DIRECTORY=${CHROMA_PERSIST_DIRECTORY:-./chroma_db}
+      - GITHUB_ACTIONS_ENABLED=${GITHUB_ACTIONS_ENABLED:-true}
+      - MAIN_WORKFLOW_FILE=${MAIN_WORKFLOW_FILE:-.github/workflows/ci.yml}
+      - DEPLOYMENT_WORKFLOW_FILE=${DEPLOYMENT_WORKFLOW_FILE:-.github/workflows/deploy.yml}
+    volumes:
+      - ./:/app
+    tty: true
+    stdin_open: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${WEB_PORT:-8001}:8001"
+    command: ["python", "main.py", "web"]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: pm-agent-frontend
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://app:${WEB_PORT:-8001}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - app
+
+# Note: Docker Models (ai/gpt-oss) must be started separately on the host, e.g.:
+#   docker model run ai/gpt-oss -p 8000:8000
+# The app connects via OPENAI_BASE_URL to http://host.docker.internal:8000/v1

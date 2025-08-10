@@ -39,6 +39,17 @@ def interactive():
     asyncio.run(_interactive_session())
 
 
+@app.command()
+def web():
+    """Run the web dashboard for monitoring and approvals."""
+    if not settings.web_interface_enabled:
+        console.print("[yellow]Warning:[/yellow] Enabling web interface (WEB_INTERFACE_ENABLED=true)")
+        settings.web_interface_enabled = True
+    import uvicorn
+    from src.web.server import app as web_app
+    uvicorn.run(web_app, host=settings.web_host, port=settings.web_port, log_level="info")
+
+
 async def _interactive_session():
     """Run the interactive session loop."""
     crew = PMAgentCrew()
@@ -137,6 +148,7 @@ def _show_interactive_help():
         ("team", "Show team member information"),
         ("config", "Show current configuration"),
         ("history", "Show recent human interaction history"),
+        ("web", "Start the web dashboard (same as 'python main.py web')"),
         ("exit/quit/q", "Exit interactive mode")
     ]
     
