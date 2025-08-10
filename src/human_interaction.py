@@ -5,6 +5,7 @@ import json
 from typing import Dict, Any, Optional, List, Union
 from datetime import datetime, timedelta
 from enum import Enum
+from uuid import uuid4
 
 from rich.console import Console
 from rich.panel import Panel
@@ -46,6 +47,7 @@ class HumanApprovalRequest:
         context: Optional[Dict[str, Any]] = None,
         timeout: Optional[int] = None
     ):
+        self.id = str(uuid4())
         self.action_type = action_type
         self.description = description
         self.proposed_action = proposed_action
@@ -56,6 +58,26 @@ class HumanApprovalRequest:
         self.status = ApprovalStatus.PENDING
         self.response = None
         self.modified_action = None
+        # Future to coordinate web-driven responses
+        try:
+            loop = asyncio.get_event_loop()
+            self._future: asyncio.Future = loop.create_future()
+        except RuntimeError:
+            # Fallback: will be set later if loop not available
+            self._future = None
+ 
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "action_type": self.action_type,
+            "description": self.description,
+            "proposed_action": self.proposed_action,
+            "risk_level": self.risk_level.value,
+            "context": self.context,
+            "timeout": self.timeout,
+            "created_at": self.created_at.isoformat(),
+            "status": self.status.value
+        }
 
 
 class HumanInteractionManager:
@@ -63,6 +85,7 @@ class HumanInteractionManager:
     
     def __init__(self):
         self.pending_requests: List[HumanApprovalRequest] = []
+        self._pending_by_id: Dict[str, HumanApprovalRequest] = {}
         self.interaction_history: List[Dict[str, Any]] = []
     
     async def request_approval(
@@ -115,12 +138,25 @@ class HumanInteractionManager:
         )
         
         self.pending_requests.append(request)
-        
-        # Display approval request to user
-        await self._display_approval_request(request)
-        
-        # Wait for user response
-        response = await self._get_user_response(request)
+        self._pending_by_id[request.id] = request
+ 
+        if settings.web_interface_enabled:
+            # In web mode, wait for external resolution via API
+            # Ensure future exists
+            if request._future is None:
+                request._future = asyncio.get_event_loop().create_future()
+            try:
+                response = await asyncio.wait_for(request._future, timeout=request.timeout)
+            except asyncio.TimeoutError:
+                response = {
+                    "status": ApprovalStatus.TIMEOUT.value,
+                    "action": None,
+                    "message": "Request timed out"
+                }
+        else:
+            # Console interaction path
+            await self._display_approval_request(request)
+            response = await self._get_user_response(request)
         
         # Record interaction
         self.interaction_history.append({
@@ -134,9 +170,32 @@ class HumanInteractionManager:
         # Remove from pending
         if request in self.pending_requests:
             self.pending_requests.remove(request)
+        if request.id in self._pending_by_id:
+            del self._pending_by_id[request.id]
         
         return response
     
+    def list_pending(self) -> List[Dict[str, Any]]:
+        return [r.to_dict() for r in self.pending_requests]
+ 
+    def resolve_request(self, request_id: str, decision: str, modified_action: Optional[Dict[str, Any]] = None, message: str = "") -> Dict[str, Any]:
+        req = self._pending_by_id.get(request_id)
+        if not req:
+            return {"error": "not_found"}
+        if decision == ApprovalStatus.APPROVED.value:
+            response = {"status": ApprovalStatus.APPROVED.value, "action": req.proposed_action, "message": message or "Approved via web"}
+        elif decision == ApprovalStatus.REJECTED.value:
+            response = {"status": ApprovalStatus.REJECTED.value, "action": None, "message": message or "Rejected via web"}
+        elif decision == ApprovalStatus.MODIFIED.value:
+            response = {"status": ApprovalStatus.MODIFIED.value, "action": modified_action or req.proposed_action, "message": message or "Modified via web"}
+        else:
+            return {"error": "invalid_decision"}
+        req.status = ApprovalStatus(response["status"])  # type: ignore[arg-type]
+        req.response = response
+        if req._future and not req._future.done():
+            req._future.set_result(response)
+        return {"ok": True}
+ 
     async def _display_approval_request(self, request: HumanApprovalRequest):
         """Display approval request to the user."""
         console.print("\n" + "="*60)
@@ -179,7 +238,7 @@ class HumanInteractionManager:
             console.print(f"\n[bold]Context:[/bold]")
             for key, value in request.context.items():
                 console.print(f"  {key}: {value}")
-    
+
     async def _get_user_response(self, request: HumanApprovalRequest) -> Dict[str, Any]:
         """Get user response to approval request."""
         try:
@@ -251,7 +310,7 @@ class HumanInteractionManager:
                 "action": None,
                 "message": "Interrupted by user"
             }
-    
+
     async def _modify_action(self, original_action: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Allow user to modify action parameters."""
         console.print("\n[bold]Modify Action Parameters:[/bold]")

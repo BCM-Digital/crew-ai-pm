@@ -7,6 +7,9 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-not-needed}
       - OPENAI_MODEL=${OPENAI_MODEL:-ai/gpt-oss}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-http://host.docker.internal:8000/v1}
+      - WEB_INTERFACE_ENABLED=${WEB_INTERFACE_ENABLED:-true}
+      - WEB_HOST=${WEB_HOST:-0.0.0.0}
+      - WEB_PORT=${WEB_PORT:-8001}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-changeme}
       - GITHUB_OWNER=${GITHUB_OWNER:-changeme}
       - GITHUB_REPO=${GITHUB_REPO:-changeme}
@@ -34,8 +37,9 @@ services:
     stdin_open: true
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    # Use the default CMD to run interactive; override with `docker compose run` for other commands
-    command: ["python", "main.py", "interactive"]
+    ports:
+      - "${WEB_PORT:-8001}:8001"
+    command: ["python", "main.py", "web"]
 
 # Note: Docker Models (ai/gpt-oss) must be started separately on the host, e.g.:
 #   docker model run ai/gpt-oss -p 8000:8000
