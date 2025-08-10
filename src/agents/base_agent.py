@@ -17,7 +17,10 @@ class BaseAgent:
         self.goal = goal
         self.backstory = backstory
         self.tools = tools or []
-        self.openai_client = openai.OpenAI(api_key=settings.openai_api_key)
+        if settings.openai_base_url:
+            self.openai_client = openai.OpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
+        else:
+            self.openai_client = openai.OpenAI(api_key=settings.openai_api_key)
     
     def get_system_prompt(self) -> str:
         """Generate system prompt for the agent."""

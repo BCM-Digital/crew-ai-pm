@@ -1,4 +1,4 @@
-# PM Agent System
+# PM Agent System - AI-Powered Project Management Assistant
 
 An AI-powered Project Management Agent system that automates routine PM tasks using AI agents with human-in-the-loop supervision.
 
@@ -400,3 +400,36 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ---
 
 **Built with ❤️ using [CrewAI](https://github.com/crewAIInc/crewAI)** 
+
+## Run with Docker and GPT-OSS (Docker Models)
+
+- Ensure Docker is installed and supports Docker Models (Docker Desktop 4.33+). See OpenAI GPT-OSS intro for details.
+- Start the GPT-OSS model locally (this exposes an OpenAI-compatible API):
+
+```bash
+# Maps model API to localhost:8000
+docker model run ai/gpt-oss -p 8000:8000
+```
+
+- Configure environment and run the app container:
+
+```bash
+cp config.example.env .env
+# Edit .env to set your GitHub/Slack keys. For local model, set for example:
+# OPENAI_BASE_URL=http://host.docker.internal:8000/v1
+# OPENAI_MODEL=ai/gpt-oss
+
+# Build and run
+docker compose up --build
+```
+
+- The app defaults to interactive CLI. You can override the command, e.g.:
+
+```bash
+docker compose run --rm app python main.py config
+```
+
+Notes:
+- If your host does not resolve host.docker.internal, the compose file includes host-gateway mapping.
+- OPENAI_API_KEY can be any non-empty string if the local model does not require auth.
+- If you prefer another OpenAI-compatible backend, set `OPENAI_BASE_URL` accordingly. 

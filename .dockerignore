@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+*.log
+*.cache/
+pytest_cache/
+.next/
+node_modules/
+.env
+.venv/
+venv/
+.git/
+.gitignore
+chroma_db/
