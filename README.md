@@ -401,35 +401,114 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 **Built with ❤️ using [CrewAI](https://github.com/crewAIInc/crewAI)** 
 
-## Run with Docker and GPT-OSS (Docker Models)
+## 🧰 Memory, Tools, and Smart Behaviors
 
-- Ensure Docker is installed and supports Docker Models (Docker Desktop 4.33+). See OpenAI GPT-OSS intro for details.
-- Start the GPT-OSS model locally (this exposes an OpenAI-compatible API):
+- **Vector Memory (Chroma + Sentence Transformers)**
+  - The agent auto-retrieves relevant memory per task and appends it to prompts
+  - Summaries of completed tasks are saved as long-term memory
+  - You can add/search memory via tools or API/UI
+
+- **Built-in Tools**
+  - `http_get`: Fetch URL contents for quick context
+  - `memory_add`: Store facts/summaries in long-term memory
+  - `memory_search`: Retrieve relevant memories
+
+- **Tool Invocation (from model output)**
+  - The agent can request tool usage by emitting a single line like:
+    - `Tool:http_get {"url": "https://example.com"}`
+  - Results are fed back into the conversation for iterative reasoning (up to 3 tool calls per task)
+
+## 🚀 Run with Docker Models (GPT-OSS)
+
+1) Start the local model (OpenAI-compatible API)
 
 ```bash
-# Maps model API to localhost:8000
 docker model run ai/gpt-oss -p 8000:8000
 ```
 
-- Configure environment and run the app container:
+2) Configure environment
 
 ```bash
 cp config.example.env .env
-# Edit .env to set your GitHub/Slack keys. For local model, set for example:
+# Set:
 # OPENAI_BASE_URL=http://host.docker.internal:8000/v1
 # OPENAI_MODEL=ai/gpt-oss
-
-# Build and run
-docker compose up --build
+# plus your GitHub/Slack values if needed
 ```
 
-- The app defaults to interactive CLI. You can override the command, e.g.:
+3) Start the backend web dashboard
 
 ```bash
-docker compose run --rm app python main.py config
+docker compose up --build app
+# Open http://localhost:8001
 ```
 
-Notes:
-- If your host does not resolve host.docker.internal, the compose file includes host-gateway mapping.
-- OPENAI_API_KEY can be any non-empty string if the local model does not require auth.
-- If you prefer another OpenAI-compatible backend, set `OPENAI_BASE_URL` accordingly. 
+4) Optional: Start the ShadCN/Next.js frontend
+
+```bash
+docker compose up --build
+# Frontend http://localhost:3000  |  Backend http://localhost:8001
+```
+
+## 🖥️ Web Dashboard & ShadCN Frontend
+
+- Backend dashboard (FastAPI): `http://localhost:8001/`
+  - View pending approvals, trigger workflows, add/search memory
+- Frontend (Next.js + Tailwind, ShadCN-ready): `http://localhost:3000/`
+  - Replace basic elements in `web-frontend/app/page.tsx` with ShadCN components
+  - Add components:
+
+```bash
+cd web-frontend
+npm install
+npx shadcn@latest init
+npx shadcn@latest add button card input textarea badge
+```
+
+## 🧠 Memory Usage (Programmatic)
+
+- Add memory via API:
+
+```bash
+curl -X POST http://localhost:8001/api/memory/add \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"Important project rule: always add tests."}'
+```
+
+- Search memory via API:
+
+```bash
+curl -X POST http://localhost:8001/api/memory/search \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"tests"}'
+```
+
+## 🔌 API Endpoints (Backend)
+
+- `GET /health` – health check
+- `GET /api/summary` – interaction summary
+- `GET /api/requests` – list pending approval requests
+- `POST /api/requests/{id}/approve|reject|modify` – resolve approvals
+- `POST /api/workflows/plan` – run planning `{ brief }`
+- `POST /api/workflows/standup` – run daily standup
+- `POST /api/workflows/monitor` – run monitoring check
+- `POST /api/memory/add` – add memory `{ text, metadata? }`
+- `POST /api/memory/search` – query memory `{ query, top_k? }`
+
+## ⚙️ Environment Variables (Key)
+
+- `OPENAI_API_KEY` – required (any non-empty if local model ignores auth)
+- `OPENAI_MODEL` – e.g. `ai/gpt-oss`
+- `OPENAI_BASE_URL` – e.g. `http://host.docker.internal:8000/v1`
+- `WEB_INTERFACE_ENABLED` – default `true` in Docker Compose
+- `WEB_HOST`/`WEB_PORT` – default `0.0.0.0:8001`
+- GitHub: `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`
+- Slack: `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_CHANNEL`
+
+## 🧪 Developer Notes
+
+- CLI modes:
+  - Interactive: `python main.py interactive`
+  - Web dashboard: `python main.py web`
+- Docker Compose runs the web dashboard by default
+- Tests: `pytest` 
