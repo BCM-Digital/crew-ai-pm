@@ -41,6 +41,18 @@ services:
       - "${WEB_PORT:-8001}:8001"
     command: ["python", "main.py", "web"]
 
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: pm-agent-frontend
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://app:${WEB_PORT:-8001}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - app
+
 # Note: Docker Models (ai/gpt-oss) must be started separately on the host, e.g.:
 #   docker model run ai/gpt-oss -p 8000:8000
 # The app connects via OPENAI_BASE_URL to http://host.docker.internal:8000/v1

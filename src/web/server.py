@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 import asyncio
@@ -8,6 +9,15 @@ from ..crew import PMAgentCrew
 from ..config import settings
 
 app = FastAPI(title="PM Agent Dashboard")
+
+# CORS for frontend (e.g., Next.js on localhost:3000)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class ModifyRequest(BaseModel):
