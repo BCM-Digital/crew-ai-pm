@@ -7,6 +7,7 @@ import asyncio
 from ..human_interaction import interaction_manager, ApprovalStatus
 from ..crew import PMAgentCrew
 from ..config import settings
+from ..memory import memory
 
 app = FastAPI(title="PM Agent Dashboard")
 
@@ -23,6 +24,16 @@ app.add_middleware(
 class ModifyRequest(BaseModel):
     action: dict
     message: str | None = None
+
+
+class MemoryAddBody(BaseModel):
+    text: str
+    metadata: dict | None = None
+
+
+class MemoryQueryBody(BaseModel):
+    query: str
+    top_k: int | None = 5
 
 
 @app.get("/health")
@@ -62,6 +73,18 @@ async def modify(request_id: str, body: ModifyRequest):
     if "error" in result:
         raise HTTPException(status_code=404, detail=result["error"])
     return {"ok": True}
+
+
+@app.post("/api/memory/add")
+async def memory_add(body: MemoryAddBody):
+    mem_id = memory.add(body.text, metadata=body.metadata or {})
+    return {"id": mem_id}
+
+
+@app.post("/api/memory/search")
+async def memory_search(body: MemoryQueryBody):
+    res = memory.query(body.query, top_k=body.top_k or 5)
+    return {"results": [{"id": r.id, "text": r.text, "metadata": r.metadata} for r in res]}
 
 
 crew_instance: PMAgentCrew | None = None
@@ -144,6 +167,19 @@ INDEX_HTML = """
     <div id="pending">Loading...</div>
   </div>
 
+  <div class="card">
+    <h3>Memory</h3>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <input id="memtext" placeholder="Save memory text" style="flex:1; padding:8px;"/>
+      <button onclick="saveMem()">Save</button>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+      <input id="memq" placeholder="Search memory" style="flex:1; padding:8px;"/>
+      <button onclick="searchMem()">Search</button>
+    </div>
+    <pre id="memres" style="margin-top:8px;"></pre>
+  </div>
+
 <script>
 async function refresh() {
   const s = await fetch('/api/summary').then(r=>r.json());
@@ -192,6 +228,17 @@ async function standup() {
 async function monitor() {
   const res = await fetch('/api/workflows/monitor', {method:'POST'}).then(r=>r.json());
   document.getElementById('workflowResult').textContent = JSON.stringify(res, null, 2);
+}
+
+async function saveMem() {
+  const text = document.getElementById('memtext').value; if(!text) return;
+  const res = await fetch('/api/memory/add', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({text})}).then(r=>r.json());
+  document.getElementById('memres').textContent = 'Saved ' + JSON.stringify(res);
+}
+async function searchMem() {
+  const query = document.getElementById('memq').value || 'standup';
+  const res = await fetch('/api/memory/search', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({query})}).then(r=>r.json());
+  document.getElementById('memres').textContent = JSON.stringify(res, null, 2);
 }
 
 refresh();

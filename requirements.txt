@@ -10,6 +10,9 @@ PyGithub>=2.1.0
 # Data & Schemas
 pydantic>=2.0.0,<3.0.0
 pydantic-settings>=2.0.0,<3.0.0
+chromadb>=0.5.3
+sentence-transformers>=3.0.1
+requests>=2.32.3
 
 # Utilities
 python-dotenv>=1.0.0
