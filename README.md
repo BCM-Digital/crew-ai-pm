@@ -1,402 +1,163 @@
-# PM Agent System
+# PM Agent on AgentCore
 
-An AI-powered Project Management Agent system that automates routine PM tasks using AI agents with human-in-the-loop supervision.
+Production-ready personal PM Agent on Amazon Bedrock AgentCore with sub-agents, Gateway tools, approvals, work-graph store, and web UI.
 
-## 🎯 Overview
+## Features
 
-The PM Agent System provides intelligent project management automation with:
+- **Intelligent Planning**: Ingests work signals from email, calendar, Planner, Teams, and GitHub
+- **Draft by Default**: All sends and changes require explicit approval via Teams Adaptive Cards
+- **Work Graph**: Tracks tasks, people, documents, and relationships in Aurora Postgres
+- **Strong Guardrails**: Token budgets, cost guards, approval-bound actions, PII redaction
+- **Full Observability**: Structured logs, CloudWatch dashboards, alarms
 
-- **Project Context Awareness**: Automatically knows which project it's working on
-- **Human-in-the-Loop Interaction**: Real-time approval and modification of agent actions
-- **GitHub Integration**: Native support for GitHub Projects, Issues, PRs, and Actions
-- **Multi-Agent Architecture**: Specialized agents for planning, reporting, and monitoring
-- **Interactive CLI**: Real-time collaboration with your PM crew
+## Architecture
 
-## 🌟 Features
+- **AgentCore Supervisor** with memory and policies
+- **Collaborators**: Planner, Comms, Tracker, Dispatcher (optional)
+- **Gateway Tools**: Strict JSON schemas, idempotency, retries
+- **Tool Adapters**: Python 3.12 Lambdas with AWS Powertools
+- **Work Graph**: Aurora Serverless v2 (Postgres)
+- **Approvals**: Teams Adaptive Cards with short-lived, action-bound tokens
+- **Events**: EventBridge schedules (Brisbane timezone)
+- **UI**: Next.js 14 with App Router
 
-### Multi-Agent Architecture
-- **Planner Agent**: Converts project briefs into structured GitHub issues and task breakdowns
-- **Reporter Agent**: Generates daily standups and sprint reports automatically  
-- **Monitor Agent**: Watches CI/CD pipelines and scans for risk flags
+## Prerequisites
 
-### Automated Workflows
-- ✅ **Project Planning**: Break down features into epics, stories, and tasks
-- 📊 **Daily Standups**: Auto-generate status reports from GitHub activity
-- 🔍 **Risk Monitoring**: Scan commits and issues for security/blocker keywords
-- 📈 **Sprint Reports**: Track velocity and completion metrics
+- AWS CLI configured with appropriate credentials
+- Node.js 20+ and pnpm
+- Python 3.12+
+- PostgreSQL client (psql)
+- AWS CDK v2 bootstrapped in target region
 
-### Integrations
-- **GitHub**: Issue management, PR tracking, repository analytics
-- **Slack**: Team notifications, approval workflows, status updates
-- **OpenAI**: GPT-4 powered reasoning and natural language processing
-
-## 🚀 Quick Start
-
-### 1. Installation
+## Quick Start
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd crew-ai-pm
-
 # Install dependencies
-pip install -r requirements.txt
+make bootstrap
 
-# Copy and configure environment
-cp config.example.env .env
+# Copy and configure
+cp config/app.example.yaml config/app.yaml
+cp config/projects.example.yaml config/projects.yaml
+cp config/features.example.yaml config/features.yaml
+# Edit config files with your values
+
+# Deploy infrastructure
+make deploy
+
+# Run database migrations
+export DATABASE_URL="postgresql://user:pass@host/db"
+make db:migrate
+
+# Run smoke test
+make smoke
 ```
 
-### 2. Configuration
+## Configuration
 
-Edit your `.env` file with your project details:
+Edit `config/app.yaml` with:
+- M365 tenant ID, client ID, and secret SSM paths
+- Teams DM chat ID for notifications
+- Project list matching your Planner
+- Schedules in Brisbane local time
+- Cost guards (token limits)
+
+## Flows
+
+### Plan Day (07:30 Brisbane)
+1. Lists flagged emails and today's calendar
+2. Generates daily plan with top 5 tasks, risks, approvals needed
+3. Posts Teams card for approval
+4. Creates calendar holds and Planner tasks on approval
+
+### Blocker Sweep (Every 2 hours)
+1. Scans Planner for tasks waiting/blocked > 48 hours
+2. Drafts polite nudges
+3. Requires approval for external emails
+
+### Status Pack (15:30 Brisbane)
+1. Queries task changes per project since last status
+2. Generates client update bullets
+3. Drafts Outlook emails
+4. Sends on approval
+
+## Approval System
+
+All create/send actions require a short-lived approval token:
+- Token bound to action hash (subject, body, recipients, times)
+- 10-minute TTL (configurable)
+- Single use only
+- Payload changes rejected
+
+## Cost Controls
+
+- Max 200k tokens per run
+- Max 200 tool invocations per run
+- Monthly stop after 20M tokens
+- Configurable in `config/app.yaml`
+
+## Observability
+
+- **Logs**: Structured JSON with trace_id, run_id, tool, latency_ms, ok, error_code
+- **Metrics**: p95 latency per tool, error rates, invocation counts, token spend
+- **Alarms**: Error rate spikes, approval failures, DB saturation
+- **Dashboard**: `/ops/dashboards.json`
+
+## Security
+
+- IAM roles per tool group (least privilege)
+- Secrets in Secrets Manager with KMS CMK
+- API Gateway with WAF basic rules
+- PII redaction in logs
+- Feature flags for safe rollout
+
+## Development
 
 ```bash
-# Project Context - Tell the crew which project it's managing
-PROJECT_NAME=My Awesome Project
-PROJECT_DESCRIPTION=A brief description of what this project does
-CURRENT_SPRINT=Sprint 2024-Q1-3
-TEAM_MEMBERS=alice,bob,charlie
+# Synth CDK
+make synth
 
-# GitHub Configuration
-GITHUB_TOKEN=your_github_personal_access_token_here
-GITHUB_OWNER=your_github_username_or_org
-GITHUB_REPO=your_repository_name
-GITHUB_PROJECT_ID=PVT_kwDOABCD1234567890  # Optional: GitHub Project ID
+# Run tests
+pnpm test              # Infrastructure tests
+pytest                 # Lambda and flow tests
 
-# AI Configuration
-OPENAI_API_KEY=your_openai_api_key_here
-
-# Slack Configuration (Optional)
-SLACK_BOT_TOKEN=xoxb-your-slack-bot-token-here
-SLACK_CHANNEL=#pm-updates
-
-# Human Interaction Settings
-HUMAN_APPROVAL_REQUIRED=true
-INTERACTIVE_MODE=false
-AUTO_APPROVE_LOW_RISK=false
+# Lint and format
+make lint
+make format
 ```
 
-### 3. Getting Your GitHub Project ID
+## CI/CD
 
-To enable GitHub Projects integration:
+GitHub Actions workflows:
+- **infra.yml**: CDK synth, diff, deploy with review gates
+- **tests.yml**: Python tests, schema checks, TypeScript builds, pre-commit
+- **security.yml**: cdk-nag, cfn-nag, bandit, npm audit
+- **Go/No-Go**: Blocks deploy on test failures or high security findings
 
-1. Go to your GitHub Project
-2. Copy the Project ID from the URL: `https://github.com/users/USERNAME/projects/NUMBER`
-3. Or use GraphQL API to get the Project ID
-
-### 4. Usage
-
-#### Interactive Mode (Recommended)
-
-Start real-time collaboration with your PM crew:
-
-```bash
-python main.py interactive
-```
-
-Available interactive commands:
-- `status` - Show current project status from GitHub Projects
-- `standup` - Generate daily standup report
-- `monitor` - Run risk assessment and health check
-- `plan <brief>` - Plan a new feature or project
-- `project` - Show detailed project information
-- `workflows` - Show recent GitHub Actions runs
-- `health` - Show repository health metrics
-- `team` - Show team member information
-- `config` - Show current configuration
-- `history` - Show human interaction history
-- `help` - Show all available commands
-
-#### Command Line Interface
-
-Run specific workflows:
-
-```bash
-# Plan a new feature
-python main.py plan "Add user authentication system"
-
-# Generate standup report
-python main.py standup
-
-# Run monitoring check
-python main.py monitor
-
-# Run all workflows
-python main.py run-all
-
-# Show configuration
-python main.py config
-
-# Test connections
-python main.py test
-```
-
-## 🤝 Human-in-the-Loop Features
-
-The system includes sophisticated human oversight:
-
-### Approval Workflow
-
-When agents want to take actions, you'll see:
+## Project Structure
 
 ```
-============================================================
-🤝 Human Approval Required
-
-Action: create_github_issue
-Risk Level: MEDIUM
-Description: Create issue for user authentication feature
-
-Proposed Action Details:
-  title: "Implement user authentication"
-  body: "Add login/logout functionality..."
-  assignees: ["alice", "bob"]
-  labels: ["feature", "high-priority"]
-
-Options:
-  a - Approve action as proposed
-  r - Reject action
-  m - Modify action parameters
-  s - Skip (auto-approve for this session)
-
-What would you like to do? [a]:
+/infra          CDK and CloudFormation IaC
+/lambdas        Tool adapter Lambdas (M365, GitHub, Jira, DevOps, KB)
+/runtime        Prompts, flows, schemas, DB client
+/ui             Next.js web interface
+/tests          Unit, integration, and smoke tests
+/ops            Runbooks, dashboards, alarms
+/config         Configuration files
 ```
 
-### Modification Capabilities
+## Operational Runbooks
 
-You can modify any proposed action:
+See `/ops/runbooks.md` for:
+- Emergency response procedures
+- Common troubleshooting steps
+- Approval token debugging
+- Cost spike investigation
+- Database maintenance
 
-```
-Modify Action Parameters:
-Current parameters:
-  title: Implement user authentication
-  assignees: ["alice", "bob"]
+## Support
 
-Options:
-  <key>=<value> - Set parameter
-  done - Finish modifications
-  cancel - Cancel modifications
+For issues or questions, see `/ops/runbooks.md` or contact the platform team.
 
-Enter modification: assignees=["charlie"]
-Set assignees = ["charlie"]
+## License
 
-Enter modification: done
-```
-
-## 🔧 Architecture
-
-### Agents
-
-- **PlannerAgent**: Breaks down projects into tasks, creates issues, assigns work
-- **ReporterAgent**: Generates standup reports, sprint summaries, status updates
-- **MonitorAgent**: Scans for risks, monitors CI/CD, checks repository health
-
-### Project Context Integration
-
-Every agent automatically knows:
-- Which project it's working on
-- Team member GitHub usernames
-- Current sprint/milestone
-- GitHub repository and project details
-- Slack channels for communication
-
-### GitHub Integration
-
-- **Issues & PRs**: Create, update, and manage development work
-- **GitHub Projects**: Track progress using native GitHub project boards
-- **GitHub Actions**: Monitor CI/CD pipelines and trigger workflows
-- **Repository Health**: Assess code quality, security, and performance
-
-## 📊 Features in Detail
-
-### Project Status Monitoring
-
-Get real-time project insights:
-
-```bash
-python main.py interactive
-> status
-```
-
-Shows:
-- GitHub Project board status
-- Issue breakdown by status
-- Recent activity
-- Team workload distribution
-
-### Workflow Integration
-
-Monitor your CI/CD pipelines:
-
-```bash
-> workflows
-```
-
-Shows:
-- Recent workflow runs
-- Success/failure rates
-- Performance metrics
-- Deployment status
-
-### Repository Health
-
-Assess overall project health:
-
-```bash
-> health
-```
-
-Provides:
-- Health score (0-100)
-- Recent failures
-- Critical issues
-- Security alerts
-- Performance metrics
-
-## 🛠 Advanced Configuration
-
-### Risk Level Settings
-
-Configure automatic approval for different risk levels:
-
-```env
-# Auto-approve low-risk actions (creating labels, minor updates)
-AUTO_APPROVE_LOW_RISK=true
-
-# Require approval for all actions
-HUMAN_APPROVAL_REQUIRED=true
-
-# Timeout for approval requests (seconds)
-APPROVAL_TIMEOUT=300
-```
-
-### GitHub Actions Integration
-
-```env
-# Enable GitHub Actions monitoring
-GITHUB_ACTIONS_ENABLED=true
-
-# Specify workflow files to monitor
-MAIN_WORKFLOW_FILE=.github/workflows/ci.yml
-DEPLOYMENT_WORKFLOW_FILE=.github/workflows/deploy.yml
-```
-
-## 📈 Workflow Examples
-
-### Daily Standup Flow
-
-1. Agent scans GitHub repository for recent activity
-2. Requests approval to generate standup report
-3. Fetches data from GitHub Projects, Issues, and PRs
-4. Generates formatted report
-5. Posts to Slack (with approval)
-
-### Project Planning Flow
-
-1. Human provides project brief via interactive mode
-2. Agent requests approval for planning action
-3. Breaks down project into tasks and issues
-4. Creates GitHub issues with proper assignments
-5. Updates project board status
-6. Notifies team via Slack
-
-### Risk Monitoring Flow
-
-1. Agent scans repository for risk indicators
-2. Checks CI/CD pipeline health
-3. Identifies critical issues or security alerts
-4. Requests approval for alerting team
-5. Creates urgent issues or notifications
-
-## 🔒 Security & Privacy
-
-- All actions require human approval by default
-- Sensitive operations use higher risk levels
-- API keys are securely managed via environment variables
-- No data is stored outside your environment
-- Full audit trail of all interactions
-
-## 🚦 Getting Started Tips
-
-1. **Start Small**: Begin with `HUMAN_APPROVAL_REQUIRED=true` to see all actions
-2. **Use Interactive Mode**: It's the best way to collaborate with agents
-3. **Configure Project Context**: This makes agents much more effective
-4. **Set Up GitHub Projects**: Native integration provides the best experience
-5. **Monitor Interactions**: Use `history` command to see what agents are doing
-
-## 🤔 Troubleshooting
-
-### Common Issues
-
-**"GitHub Project ID not configured"**
-- Set `GITHUB_PROJECT_ID` in your `.env` file
-- Find it in your GitHub Project URL
-
-**"Human approval required but no response"**
-- Check your `APPROVAL_TIMEOUT` setting
-- Use interactive mode for better experience
-
-**"Permission denied"**
-- Verify GitHub token has required permissions
-- Check repository access
-
-### Debug Mode
-
-Enable verbose logging:
-
-```env
-AGENT_VERBOSE=true
-```
-
-## 📚 API Reference
-
-### Project Context Object
-
-```python
-{
-    "project_name": "My Awesome Project",
-    "project_description": "Description...",
-    "repository": "owner/repo",
-    "github_project_id": "PVT_kwDO...",
-    "current_sprint": "Sprint 2024-Q1-3",
-    "team_members": ["alice", "bob"],
-    "slack_channel": "#pm-updates"
-}
-```
-
-### Human Approval Response
-
-```python
-{
-    "status": "approved|rejected|modified|timeout",
-    "action": {...},  # Approved/modified action
-    "message": "User feedback"
-}
-```
-
-## 🎉 What's Next?
-
-This system gives you:
-
-- ✅ **Project Context Awareness**: Agents know exactly which project they're managing
-- ✅ **Human-in-the-Loop Control**: Approve, reject, or modify any agent action
-- ✅ **GitHub Native Integration**: Works seamlessly with GitHub Projects and Actions
-- ✅ **Interactive Collaboration**: Real-time chat with your PM crew
-- ✅ **Intelligent Automation**: Sophisticated AI with human oversight
-
-The PM Agent System transforms how you manage projects by combining AI intelligence with human judgment, all while maintaining full control and transparency.
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Support
-
-- 📚 Check the [documentation](docs/) for detailed guides
-- 🐛 Report bugs via [GitHub Issues](issues)
-- 💬 Join discussions in [GitHub Discussions](discussions)
-- 📧 Contact: [your-email@example.com](mailto:your-email@example.com)
-
----
-
-**Built with ❤️ using [CrewAI](https://github.com/crewAIInc/crewAI)** 
+Proprietary - Internal Use Only

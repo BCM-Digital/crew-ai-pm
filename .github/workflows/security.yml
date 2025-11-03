@@ -1,0 +1,135 @@
+name: Security
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * 1' # Weekly on Monday
+
+jobs:
+  python-security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install bandit pip-audit
+
+      - name: Run bandit
+        run: |
+          bandit -r lambdas/ runtime/ -ll -f json -o bandit-report.json
+          bandit -r lambdas/ runtime/ -ll
+
+      - name: Run pip-audit
+        run: |
+          pip-audit
+
+      - name: Upload bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+
+  typescript-security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run npm audit (CDK)
+        run: |
+          cd infra/cdk
+          pnpm audit --audit-level=high
+
+      - name: Run npm audit (UI)
+        run: |
+          cd ui
+          pnpm audit --audit-level=high
+
+  cdk-nag:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install CDK dependencies
+        run: |
+          cd infra/cdk
+          pnpm install
+
+      - name: Run CDK synth with cdk-nag
+        run: |
+          cd infra/cdk
+          pnpm synth 2>&1 | tee cdk-nag-output.txt
+
+      - name: Check for high severity findings
+        run: |
+          cd infra/cdk
+          if grep -i "error\|high" cdk-nag-output.txt; then
+            echo "High severity findings detected"
+            exit 1
+          fi
+
+      - name: Upload cdk-nag report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cdk-nag-report
+          path: infra/cdk/cdk-nag-output.txt
+
+  cloudformation-security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cfn-nag
+        run: |
+          gem install cfn-nag
+
+      - name: Run cfn-nag on CloudFormation templates
+        run: |
+          cfn_nag_scan --input-path infra/cloudformation/
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

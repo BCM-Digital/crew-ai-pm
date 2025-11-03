@@ -1,0 +1,40 @@
+env: dev
+region: ap-southeast-2
+timezone: Australia/Brisbane
+use_postgres: true
+
+projects:
+  - MCU
+  - QRIDA
+  - "Uniform Link"
+  - LTC
+  - SureMesh
+
+m365:
+  tenant_id: "TBD"
+  client_id: "TBD"
+  client_secret_ssm: "/pm-agent/m365/client-secret"
+  teams_dm_chat_id_ssm: "/pm-agent/m365/damien-dm-chat-id"
+
+graph_scopes:
+  - Mail.Read
+  - Mail.Send
+  - Calendars.ReadWrite
+  - Tasks.ReadWrite
+  - Sites.ReadWrite.All
+  - Chat.Read
+  - ChatMessage.Send
+
+approvals:
+  token_ttl_minutes: 10
+
+schedules:
+  # These are Brisbane local times; EventBridge will receive UTC cron converted at deploy
+  plan_day_local: "07:30"
+  blocker_sweep_every_hours: 2
+  status_pack_local: "15:30"
+
+cost_guards:
+  max_bedrock_tokens_per_run: 200_000
+  max_tool_invocations_per_run: 200
+  monthly_stop_after_tokens: 20_000_000

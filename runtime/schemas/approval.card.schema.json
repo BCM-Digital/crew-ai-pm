@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pm-agent.internal/schemas/approval.card.schema.json",
+  "title": "Approval Card Submission",
+  "description": "Schema for Teams Adaptive Card approval submission payloads",
+  "type": "object",
+  "required": ["action", "approval_token", "action_hash"],
+  "properties": {
+    "action": {
+      "type": "string",
+      "description": "Action being approved",
+      "enum": ["approve", "reject", "approve_all"]
+    },
+    "approval_token": {
+      "type": "string",
+      "description": "Short-lived approval token (JWT)",
+      "minLength": 20,
+      "maxLength": 2000
+    },
+    "action_hash": {
+      "type": "string",
+      "description": "SHA-256 hash of normalised action payload",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Flow run ID that generated this approval request",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "tool": {
+      "type": "string",
+      "description": "Tool name being approved",
+      "pattern": "^[a-z_]+\\.[a-z_]+$"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Original tool payload (must match action_hash)",
+      "minProperties": 1
+    },
+    "user_comment": {
+      "type": "string",
+      "description": "Optional user comment on approval/rejection",
+      "maxLength": 1000
+    },
+    "submitted_at": {
+      "type": "string",
+      "description": "Submission timestamp (ISO8601)",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

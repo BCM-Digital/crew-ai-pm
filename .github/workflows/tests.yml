@@ -1,0 +1,92 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.12']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache Python dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run pytest
+        run: |
+          pytest tests/ -v --tb=short
+
+      - name: Run flake8
+        run: |
+          flake8 lambdas/ runtime/ tests/ --max-line-length=100 --extend-ignore=E203
+
+      - name: Run black check
+        run: |
+          black --check lambdas/ runtime/ tests/ --line-length=100
+
+  typescript-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build CDK
+        run: |
+          cd infra/cdk
+          pnpm build
+
+      - name: Run CDK tests
+        run: |
+          cd infra/cdk
+          pnpm test
+
+      - name: Lint TypeScript
+        run: |
+          cd infra/cdk
+          pnpm lint
+
+  schema-validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON schemas
+        run: |
+          npm install -g ajv-cli
+          ajv validate --all-errors \
+            -s https://json-schema.org/draft-07/schema \
+            -d runtime/schemas/task.schema.json \
+            -d runtime/schemas/tool.registry.json \
+            -d runtime/schemas/approval.card.schema.json

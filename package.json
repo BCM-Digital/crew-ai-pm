@@ -1,0 +1,26 @@
+{
+  "name": "pm-agent",
+  "version": "1.0.0",
+  "description": "Personal PM Agent on Amazon Bedrock AgentCore",
+  "private": true,
+  "workspaces": [
+    "infra/cdk",
+    "ui"
+  ],
+  "scripts": {
+    "bootstrap": "pnpm install && pip install -r requirements.txt",
+    "synth": "pnpm --filter @pm-agent/cdk synth",
+    "deploy": "pnpm --filter @pm-agent/cdk deploy",
+    "test": "pnpm --filter @pm-agent/cdk test && pytest",
+    "lint": "pnpm --filter @pm-agent/cdk lint && pnpm --filter @pm-agent/ui lint",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,yaml,yml,md}\" && black lambdas/ runtime/ tests/",
+    "security": "pnpm audit && bandit -r lambdas/ runtime/"
+  },
+  "devDependencies": {
+    "prettier": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

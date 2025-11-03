@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pm-agent.internal/schemas/task.schema.json",
+  "title": "Task",
+  "description": "A work item tracked in the PM Agent system",
+  "type": "object",
+  "required": ["id", "source", "project", "title", "description", "priority", "status"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique task identifier",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "source": {
+      "type": "string",
+      "description": "Origin of the task",
+      "enum": ["outlook", "teams", "calendar", "manual", "github", "jira"]
+    },
+    "project": {
+      "type": "string",
+      "description": "Project name",
+      "enum": ["MCU", "QRIDA", "Uniform Link", "LTC", "SureMesh"]
+    },
+    "title": {
+      "type": "string",
+      "description": "Short task title (verb phrase)",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed task description",
+      "minLength": 1,
+      "maxLength": 5000
+    },
+    "priority": {
+      "type": "string",
+      "description": "Task priority level",
+      "enum": ["P0", "P1", "P2", "P3"]
+    },
+    "status": {
+      "type": "string",
+      "description": "Current task status",
+      "enum": ["new", "planned", "waiting", "blocked", "done"]
+    },
+    "assignee": {
+      "type": ["string", "null"],
+      "description": "Person assigned to the task",
+      "maxLength": 255
+    },
+    "due_at": {
+      "type": ["string", "null"],
+      "description": "Due date in ISO8601 format",
+      "format": "date-time"
+    },
+    "next_action": {
+      "type": ["string", "null"],
+      "description": "Next action to take",
+      "maxLength": 500
+    },
+    "artefacts": {
+      "type": "array",
+      "description": "Related artefacts (URLs, IDs)",
+      "items": {
+        "type": "object",
+        "required": ["type", "id"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["email", "document", "pr", "issue", "meeting", "slack_thread"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
+      "maxItems": 50
+    },
+    "created_at": {
+      "type": "string",
+      "description": "Creation timestamp",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "description": "Last update timestamp",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://pm-agent.internal/schemas/tool.registry.json",
+  "title": "Tool Registry",
+  "description": "Schema that all tool definitions must pass for Gateway registration",
+  "type": "object",
+  "required": ["name", "description", "category", "input_schema", "error_mapping", "requires_approval"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Tool name in format category.action (e.g., mail.draft)",
+      "pattern": "^[a-z_]+\\.[a-z_]+$"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable tool description",
+      "minLength": 10,
+      "maxLength": 500
+    },
+    "category": {
+      "type": "string",
+      "description": "Tool category",
+      "enum": ["mail", "calendar", "planner", "teams", "pr", "issue", "octopus", "vercel", "ecs", "kb", "jira"]
+    },
+    "input_schema": {
+      "type": "object",
+      "description": "JSON Schema for tool inputs (Draft 7)",
+      "required": ["type", "properties"],
+      "properties": {
+        "type": {
+          "const": "object"
+        },
+        "properties": {
+          "type": "object",
+          "minProperties": 1
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "output_schema": {
+      "type": "object",
+      "description": "JSON Schema for tool outputs (Draft 7)"
+    },
+    "error_mapping": {
+      "type": "object",
+      "description": "Map HTTP/vendor error codes to standard error types",
+      "patternProperties": {
+        "^[0-9]+$": {
+          "type": "string",
+          "enum": ["bad_args", "not_found", "rate_limited", "auth_error", "conflict", "internal"]
+        }
+      }
+    },
+    "requires_approval": {
+      "type": "boolean",
+      "description": "Whether this tool requires approval tokens for execution"
+    },
+    "idempotent": {
+      "type": "boolean",
+      "description": "Whether this tool supports idempotency keys",
+      "default": false
+    },
+    "retry_policy": {
+      "type": "object",
+      "description": "Retry configuration",
+      "properties": {
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "default": 3
+        },
+        "backoff_base_ms": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 5000,
+          "default": 1000
+        },
+        "retryable_errors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["rate_limited", "internal"]
+          }
+        }
+      }
+    },
+    "rate_limits": {
+      "type": "object",
+      "description": "Rate limit configuration",
+      "properties": {
+        "requests_per_minute": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "requests_per_hour": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

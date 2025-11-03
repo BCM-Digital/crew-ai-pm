@@ -1,0 +1,118 @@
+{
+  "dashboard": {
+    "name": "PM-Agent-Operations",
+    "description": "Operational dashboard for PM Agent system",
+    "widgets": [
+      {
+        "type": "metric",
+        "properties": {
+          "title": "Lambda Invocations & Errors",
+          "metrics": [
+            ["AWS/Lambda", "Invocations", { "stat": "Sum" }],
+            [".", "Errors", { "stat": "Sum", "color": "#d62728" }]
+          ],
+          "region": "ap-southeast-2",
+          "period": 300,
+          "yAxis": {
+            "left": {
+              "label": "Count"
+            }
+          }
+        }
+      },
+      {
+        "type": "metric",
+        "properties": {
+          "title": "Lambda Duration Percentiles",
+          "metrics": [
+            ["AWS/Lambda", "Duration", { "stat": "p50" }],
+            ["...", { "stat": "p95", "color": "#ff7f0e" }],
+            ["...", { "stat": "p99", "color": "#d62728" }]
+          ],
+          "region": "ap-southeast-2",
+          "period": 300,
+          "yAxis": {
+            "left": {
+              "label": "Milliseconds"
+            }
+          }
+        }
+      },
+      {
+        "type": "metric",
+        "properties": {
+          "title": "Tool Invocation Success Rate",
+          "metrics": [
+            ["PMAgent", "ToolInvocationSuccess", { "stat": "Sum", "color": "#2ca02c" }],
+            [".", "ToolInvocationError", { "stat": "Sum", "color": "#d62728" }]
+          ],
+          "region": "ap-southeast-2",
+          "period": 300,
+          "yAxis": {
+            "left": {
+              "label": "Count"
+            }
+          }
+        }
+      },
+      {
+        "type": "metric",
+        "properties": {
+          "title": "Database Connections",
+          "metrics": [
+            ["AWS/RDS", "DatabaseConnections", { "stat": "Average" }]
+          ],
+          "region": "ap-southeast-2",
+          "period": 300,
+          "yAxis": {
+            "left": {
+              "label": "Connections"
+            }
+          },
+          "annotations": {
+            "horizontal": [
+              {
+                "value": 80,
+                "label": "High Connection Threshold",
+                "color": "#ff7f0e"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "metric",
+        "properties": {
+          "title": "Bedrock Token Usage",
+          "metrics": [
+            ["PMAgent", "BedrockTokensUsed", { "stat": "Sum" }]
+          ],
+          "region": "ap-southeast-2",
+          "period": 3600,
+          "yAxis": {
+            "left": {
+              "label": "Tokens"
+            }
+          },
+          "annotations": {
+            "horizontal": [
+              {
+                "value": 200000,
+                "label": "Per-Run Limit",
+                "color": "#d62728"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "type": "log",
+        "properties": {
+          "title": "Recent Errors",
+          "query": "SOURCE '/aws/lambda/PMAgent'\n| fields @timestamp, @message, tool, error_code\n| filter @message like /ERROR/\n| sort @timestamp desc\n| limit 20",
+          "region": "ap-southeast-2"
+        }
+      }
+    ]
+  }
+}

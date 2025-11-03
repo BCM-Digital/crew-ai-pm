@@ -1,0 +1,39 @@
+MCU:
+  planner_plan: "MCU Plan"
+  buckets:
+    - "Backlog"
+    - "In progress"
+    - "Waiting"
+    - "Review"
+
+QRIDA:
+  planner_plan: "QRIDA Plan"
+  buckets:
+    - "Backlog"
+    - "In progress"
+    - "Waiting"
+    - "Review"
+
+"Uniform Link":
+  planner_plan: "UL Plan"
+  buckets:
+    - "Backlog"
+    - "In progress"
+    - "Waiting"
+    - "Review"
+
+LTC:
+  planner_plan: "LTC Plan"
+  buckets:
+    - "Backlog"
+    - "In progress"
+    - "Waiting"
+    - "Review"
+
+SureMesh:
+  planner_plan: "SureMesh Plan"
+  buckets:
+    - "Backlog"
+    - "In progress"
+    - "Waiting"
+    - "Review"
